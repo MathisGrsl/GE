@@ -1,0 +1,7 @@
+{
+            std::ofstream out("zone.vertices", std::ios::binary);
+            auto sphereVerts = ge::initZone();
+            if(out.is_open()){
+            out.write(reinterpret_cast<const char*>(sphereVerts.data()), sphereVerts.size() * sizeof(float));
+            }
+        }
