@@ -38,10 +38,16 @@ int frameRendering(double deltaTime)
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    ge::objects[ge::getIndiceObject("dome")].instances[0].position.x = ge::camPos.x;
-    ge::objects[ge::getIndiceObject("dome")].instances[0].position.z = ge::camPos.z;
+    if (ge::previousObjects[ge::getIndiceObject("dome")].instances.size()) {
+        ge::previousObjects[ge::getIndiceObject("dome")].instances[0].position.x = ge::camPos.x;
+        ge::previousObjects[ge::getIndiceObject("dome")].instances[0].position.z = ge::camPos.z;
+    }
+    ge::drawObjects(ge::previousObjects);
 
-    ge::drawObjects();
+    ge::drawObjects(ge::objects);
+
+    glClear(GL_DEPTH_BUFFER_BIT);
+    ge::drawObjects(ge::nextObjects);
 
     ge::interfaceMode();
     ge::renderText(ge::test, 10, 50, 2, ge::v3(255 / 255.0f, 192 / 255.0f, 203 / 255.0f));

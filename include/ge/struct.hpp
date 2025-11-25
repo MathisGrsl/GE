@@ -42,5 +42,7 @@ namespace ge {
         std::vector<instanceData> instances;
     };
 
+    inline std::vector<ge::object> previousObjects;
     inline std::vector<ge::object> objects;
+    inline std::vector<ge::object> nextObjects;
 }

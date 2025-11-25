@@ -28,7 +28,7 @@ namespace ge {
         return -1;
     }
 
-    inline void newObject(const char *objectName, ge::v3 position, ge::v3 rotation, float angle, ge::v3 scale, int isLight, int texture)
+    inline void newObject(const char *objectName, ge::v3 position, ge::v3 rotation, float angle, ge::v3 scale, int isLight, int texture, std::vector<ge::object> &objectsTarget)
     {
         int indice = getIndiceObject(objectName);
         ge::object::instanceData instance = {};
@@ -44,71 +44,84 @@ namespace ge {
         instance.isLight = isLight;
         instance.texture = texture;
         instance.uvScale = { scale.x , scale.z};
-        ge::objects[indice].instances.push_back(instance);
+        objectsTarget[indice].instances.push_back(instance);
 
         bool textureAlreadyUsed = false;
-        for (int i = 0; i < int(ge::objects[indice].texturesUse.size()); i += 1)
-            textureAlreadyUsed = textureAlreadyUsed | (ge::objects[indice].texturesUse[i] == texture);
+        for (int i = 0; i < int(objectsTarget[indice].texturesUse.size()); i += 1)
+            textureAlreadyUsed = textureAlreadyUsed | (objectsTarget[indice].texturesUse[i] == texture);
         if (!textureAlreadyUsed)
-            ge::objects[indice].texturesUse.push_back(texture);
+            objectsTarget[indice].texturesUse.push_back(texture);
     }
 
     inline int loadMaps()
     {
-        std::filesystem::path dir = "maps/objects";
+        struct MapCategory {
+            const char* folder;
+            std::vector<ge::object>* target;
+        };
 
-        if (!std::filesystem::exists(dir)) {
-            std::cerr << "maps/objects n'existe pas\n";
-            return -1;
-        }
+        std::vector<MapCategory> categories = {
+            { "maps/objects",  &ge::objects },
+            { "maps/previous", &ge::previousObjects },
+            { "maps/next",     &ge::nextObjects }
+        };
 
-        for (auto& entry : std::filesystem::directory_iterator(dir))
+        for (const auto& cat : categories)
         {
-            if (!entry.is_regular_file())
-                continue;
+            std::filesystem::path dir = cat.folder;
 
-            std::string path = entry.path().string();
-            std::string filename = entry.path().stem().string();     // ex: "tree" depuis "tree.instances"
-            std::string extension = entry.path().extension().string();
-
-            if (extension != ".instances")
-                continue;
-
-            // Vérifier que l’objet existe dans objectNames
-            int index = ge::getIndiceObject(filename.c_str());
-            if (index == -1) {
-                std::cerr << "Objet inconnu dans les fichiers : " << filename << "\n";
-                continue;
+            if (!std::filesystem::exists(dir)) {
+                std::cerr << cat.folder << " n'existe pas\n";
+                continue;  // On passe aux autres au lieu de fail
             }
 
-            std::ifstream in(path, std::ios::binary);
-            if (!in.is_open()) {
-                std::cerr << "Impossible d'ouvrir : " << path << "\n";
-                continue;
-            }
-
-            // Lire le nombre d’instances
-            int count = 0;
-            in.read(reinterpret_cast<char*>(&count), sizeof(int));
-
-            for (int i = 0; i < count; i += 1)
+            for (auto& entry : std::filesystem::directory_iterator(dir))
             {
-                ge::object::instanceData inst;
-                in.read(reinterpret_cast<char*>(&inst), sizeof(inst));
+                if (!entry.is_regular_file())
+                    continue;
 
-                ge::newObject(
-                    filename.c_str(),
-                    inst.position,
-                    inst.rotation,
-                    inst.angle,
-                    inst.scale,
-                    int(inst.isLight),
-                    int(inst.texture)
-                );
+                std::string path = entry.path().string();
+                std::string filename = entry.path().stem().string();
+                std::string extension = entry.path().extension().string();
+
+                if (extension != ".instances")
+                    continue;
+
+                int index = ge::getIndiceObject(filename.c_str());
+                if (index == -1) {
+                    std::cerr << "Objet inconnu dans les fichiers : " << filename << "\n";
+                    continue;
+                }
+
+                std::ifstream in(path, std::ios::binary);
+                if (!in.is_open()) {
+                    std::cerr << "Impossible d'ouvrir : " << path << "\n";
+                    continue;
+                }
+
+                int count = 0;
+                in.read(reinterpret_cast<char*>(&count), sizeof(int));
+
+                for (int i = 0; i < count; i++)
+                {
+                    ge::object::instanceData inst;
+                    in.read(reinterpret_cast<char*>(&inst), sizeof(inst));
+
+                    ge::newObject(
+                        filename.c_str(),
+                        inst.position,
+                        inst.rotation,
+                        inst.angle,
+                        inst.scale,
+                        int(inst.isLight),
+                        int(inst.texture),
+                        *cat.target   // <-- vecteur cible correct
+                    );
+                }
+
+                in.close();
+                std::cout << "Loaded: " << path << " (" << count << " instances)\n";
             }
-
-            in.close();
-            std::cout << "Loaded: " << path << " (" << count << " instances)\n";
         }
 
         return 0;
@@ -116,33 +129,49 @@ namespace ge {
 
     inline void saveMaps()
     {
-        std::filesystem::create_directories("maps/objects");
+        struct MapCategory {
+            std::vector<ge::object>* source;
+            std::string folder;
+        };
 
-        for (int i = 0; i < int(ge::objects.size()); i++)
+        std::vector<MapCategory> categories = {
+            { &ge::objects, "maps/objects" },
+            { &ge::previousObjects, "maps/previous" },
+            { &ge::nextObjects, "maps/next" }
+        };
+
+        for (const auto& cat : categories)
         {
-            const auto& obj = ge::objects[i];
-            const std::string& name = ge::objectNames[i];
+            std::filesystem::create_directories(cat.folder);
 
-            std::string filePath = "maps/objects/" + name + ".instances";
+            auto& vec = *cat.source;
 
-            std::ofstream out(filePath, std::ios::binary);
-            if (!out.is_open()) {
-                std::cerr << "Impossible d'ouvrir : " << filePath << "\n";
-                continue;
+            for (int i = 0; i < int(vec.size()); i++)
+            {
+                const auto& obj = vec[i];
+                const std::string& name = ge::objectNames[i];
+
+                std::string filePath = cat.folder + "/" + name + ".instances";
+
+                std::ofstream out(filePath, std::ios::binary);
+                if (!out.is_open()) {
+                    std::cerr << "Impossible d'ouvrir : " << filePath << "\n";
+                    continue;
+                }
+
+                int count = obj.instances.size();
+                out.write(reinterpret_cast<const char*>(&count), sizeof(int));
+
+                if (count > 0) {
+                    out.write(
+                        reinterpret_cast<const char*>(obj.instances.data()),
+                        count * sizeof(ge::object::instanceData)
+                    );
+                }
+
+                out.close();
+                std::cout << "Saved: " << filePath << "\n";
             }
-
-            int count = obj.instances.size();
-            out.write(reinterpret_cast<const char*>(&count), sizeof(int));
-
-            if (count > 0) {
-                out.write(
-                    reinterpret_cast<const char*>(obj.instances.data()),
-                    count * sizeof(ge::object::instanceData)
-                );
-            }
-
-            out.close();
-            std::cout << "Saved: " << filePath << "\n";
         }
     }
 
@@ -214,7 +243,8 @@ namespace ge {
             glBindVertexArray(0);
             glBindBuffer(GL_ARRAY_BUFFER, 0);
         }
-
+        ge::previousObjects = objects;
+        ge::nextObjects = objects;
         return 0;
     }
 
@@ -264,7 +294,7 @@ namespace ge {
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
-    inline void drawObjects()
+    inline void drawObjects(std::vector<ge::object> &objectsTarget)
     {
         GLuint shader = ge::perfMode ? ge::shaderObjectPerf : ge::shaderObject;
         glUseProgram(shader);
@@ -280,7 +310,7 @@ namespace ge {
         glUniformMatrix4fv(glGetUniformLocation(shader, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniform3fv(glGetUniformLocation(shader, "camPos"), 1, glm::value_ptr(glm::vec3(ge::camPos.x, ge::camPos.y, ge::camPos.z)));
 
-        for (auto& obj : ge::objects)
+        for (auto& obj : objectsTarget)
         {
             if (obj.instances.empty())
                 continue;
@@ -420,14 +450,15 @@ namespace ge {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         int id = int(pixel[0]) - 1;
+
+        if (id < 0)
+            return nullptr;
+
         if (impactPosition != nullptr) {
             impactPosition->x = pixel[1];
             impactPosition->y = pixel[2];
             impactPosition->z = pixel[3];
         }
-
-        if (id < 0)
-            return nullptr;
 
         int globalIndex = 0;
 
