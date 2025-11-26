@@ -2,6 +2,8 @@
 
 void initialisation()
 {
+    ge::newObject("detector", ge::v3(0, 5, 0), ge::v3(0, 1, 0), 0, ge::v3(1, 1, 1), 0, ge::getIndiceTexture("gold"), ge::objects);
+
     ge::newObject("dome", ge::v3(0, -200, 0), ge::v3(0, 1, 0), 0, ge::v3(1000, 1000, 1000), 1, ge::getIndiceTexture("sky"), ge::previousObjects);
 
     ge::newObject("quad", ge::v3(0, 0, 0),
