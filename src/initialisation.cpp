@@ -20,6 +20,6 @@ void initialisation()
     }
 
     
-    ge::newObject("sphere", ge::v3(-5, 5, -5), ge::v3(0, 1, 0), 0, ge::v3(1, 1, 1), 1, ge::getIndiceTexture("gold"), ge::objects);
+    ge::newObject("sphere", ge::v3(-200, 500, -200), ge::v3(0, 1, 0), 0, ge::v3(10, 10, 10), 1, ge::getIndiceTexture("gold"), ge::objects);
     ge::newObject("sphere", ge::v3(0, 0, 0), ge::v3(0, 1, 0), 0, ge::v3(1, 1, 10), 0, ge::getIndiceTexture("gold"), ge::nextObjects);
 }

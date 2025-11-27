@@ -10,7 +10,7 @@ out vec4 FragColor;
 
 uniform sampler2D textures[16];
 uniform int indiceTextures[4];
-uniform vec3 lightPos = vec3(-5, 5, -5);
+uniform vec3 lightPos = vec3(-200, 500, -200);
 uniform vec3 lightColor = vec3(1.0);
 uniform vec3 camPos;
 
